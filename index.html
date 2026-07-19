@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Bright Sparks Quiz</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#121834; --panel:#161d3a; --panel-line:#2a3466;
+    --text:#f4f6ff; --dim:#98a2c9;
+    --a:#ffb020; --b:#19d3c5; --c:#ef5da8; --d:#a6e22e;
+    --good:#2ecc71; --bad:#ff5a5a;
+    --gold:#ffd54a; --silver:#c9d3e0; --bronze:#e0a06e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,255,255,0.08), transparent 60%),
+      linear-gradient(180deg, var(--bg2), var(--bg));
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; align-items:flex-start; justify-content:center; padding:24px;
+  }
+  #app{ width:100%; max-width:640px; }
+  h1,h2,h3{ margin:0 0 8px; font-weight:800; letter-spacing:-0.01em; }
+  p{ margin:0 0 16px; color:var(--dim); line-height:1.5; }
+  .card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:20px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
+  .btn{ display:block; text-align:center; background:linear-gradient(180deg,#2b3568,#1c2450); border:1px solid var(--panel-line); color:var(--text); font-size:16px; font-weight:700; padding:14px 20px; border-radius:14px; cursor:pointer; width:100%; margin-bottom:12px; transition:transform .12s ease, filter .12s ease; }
+  .btn:hover{ filter:brightness(1.15); }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{ background:linear-gradient(180deg,#ffb020,#e8940a); color:#231400; border:none; }
+  .btn-ghost{ background:transparent; }
+  .btn[disabled]{ opacity:.35; cursor:not-allowed; filter:none; }
+  input[type=text], input[type=number], textarea{ width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--panel-line); background:#0e1330; color:var(--text); font-size:16px; margin-bottom:14px; font-family:inherit; }
+  .pin{ font-size:44px; font-weight:900; letter-spacing:6px; text-align:center; color:var(--a); margin:12px 0; }
+  .qr-wrap{ background:#fff; padding:12px; border-radius:14px; display:flex; align-items:center; justify-content:center; width:184px; height:184px; margin:8px auto 4px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
+  .opt{ border-radius:16px; padding:22px 16px; cursor:pointer; text-align:left; display:flex; align-items:center; gap:12px; font-weight:700; font-size:17px; border:3px solid transparent; color:#0a0e1a; min-height:84px; }
+  .opt.correct{ outline:4px solid var(--good); animation:pulse .6s ease; }
+  .opt.wrong{ outline:4px solid var(--bad); }
+  @keyframes pulse{ 0%{transform:scale(1);} 50%{transform:scale(1.03);} 100%{transform:scale(1);} }
+  .opt-a{ background:var(--a); } .opt-b{ background:var(--b); } .opt-c{ background:var(--c); } .opt-d{ background:var(--d); }
+  .timerBarWrap{ height:10px; background:#0e1330; border-radius:6px; overflow:hidden; margin:16px 0; }
+  .timerBar{ height:100%; background:linear-gradient(90deg,var(--b),var(--a)); }
+  .timerBar.urgent{ background:var(--bad); }
+  .kicker{ text-transform:uppercase; letter-spacing:2px; font-size:12px; color:var(--dim); font-weight:700; margin-bottom:6px; }
+  .rosterchips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+  .chip{ padding:5px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+  .chip.done{ background:var(--good); color:#0a2e1a; }
+  .chip.waiting{ background:#0e1330; border:1px solid var(--panel-line); color:var(--dim); }
+  .scoreBig{ font-size:56px; font-weight:900; }
+  .scoreBig.good{ color:var(--good); }
+  .list-row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--panel-line); }
+  .rank{ color:var(--dim); width:28px; display:inline-block; }
+  .muted{ color:var(--dim); font-size:14px; }
+  .center{ text-align:center; }
+  .podium{ display:flex; align-items:flex-end; gap:10px; justify-content:center; margin:20px 0; }
+  .podium>div{ text-align:center; width:90px; }
+  .bar{ border-radius:10px 10px 4px 4px; width:100%; }
+  label.field{ font-size:11px; color:var(--dim); font-weight:700; letter-spacing:1px; display:block; margin:14px 0 6px; }
+  .segrow{ display:flex; gap:8px; margin:6px 0 14px; }
+  .seg{ flex:1; padding:10px; border-radius:10px; border:1px solid var(--panel-line); background:#0e1330; color:#c7cdf0; font-weight:700; font-size:13px; cursor:pointer; text-align:center; }
+  .seg.active{ background:var(--b); color:#0a0e1a; border-color:var(--b); }
+  .optedit{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .optedit input[type=text]{ flex:1; margin-bottom:0; }
+  .qrow{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:12px 0; border-bottom:1px solid var(--panel-line); }
+  .qrow-main{ flex:1; font-size:14px; }
+  .badge{ display:inline-block; background:#0e1330; border:1px solid var(--panel-line); color:var(--dim); font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; margin-right:6px; }
+  .qrow-actions{ display:flex; gap:6px; flex-wrap:wrap; flex:none; }
+  .iconbtn{ background:#0e1330; border:1px solid var(--panel-line); color:var(--text); font-size:12px; font-weight:700; padding:7px 10px; border-radius:8px; cursor:pointer; }
+  .iconbtn.danger{ color:var(--bad); }
+  .pulse-dot{ width:12px; height:12px; border-radius:50%; background:var(--b); margin:0 auto 16px; animation:dotPulse 1.2s ease-in-out infinite; }
+  @keyframes dotPulse{ 0%,100%{opacity:.4; transform:scale(1);} 50%{opacity:1; transform:scale(1.3);} }
+  .award-stage{ position:relative; padding:16px 0 6px; overflow:hidden; }
+  .confetti-layer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .confetti{ position:absolute; top:-16px; width:8px; height:14px; opacity:.9; animation-name:confettiFall; animation-timing-function:ease-in; animation-iteration-count:infinite; }
+  @keyframes confettiFall{ 0%{ transform:translateY(0) rotate(0deg); opacity:1; } 100%{ transform:translateY(260px) rotate(360deg); opacity:0; } }
+  .presenter{ display:flex; align-items:flex-end; justify-content:center; gap:14px; margin-bottom:8px; animation:presenterIn .6s ease; }
+  @keyframes presenterIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  .presenter-figure{ display:flex; flex-direction:column; align-items:center; }
+  .presenter-head{ width:30px; height:30px; border-radius:50%; background:#d9c7a8; margin-bottom:-2px; border:2px solid #1a1f3a; }
+  .presenter-body{ width:44px; height:52px; background:#1a1f3a; border-radius:10px 10px 4px 4px; position:relative; }
+  .presenter-body::after{ content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:6px; height:22px; background:var(--a); clip-path:polygon(50% 100%, 0 0, 100% 0); }
+  .trophy{ font-size:34px; animation:trophyBounce 1.4s ease-in-out infinite; transform-origin:bottom center; }
+  @keyframes trophyBounce{ 0%,100%{transform:translateY(0) rotate(-4deg);} 50%{transform:translateY(-6px) rotate(4deg);} }
+  .award-caption{ font-size:12px; color:var(--dim); font-weight:700; letter-spacing:.5px; margin-bottom:2px; }
+  .winner-name{ font-size:30px; font-weight:900; margin:2px 0; background:linear-gradient(90deg,var(--a),var(--c)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .winner-sub{ font-size:13px; color:var(--dim); margin-bottom:4px; }
+  @media (max-width:420px){
+    body{ padding:12px; }
+    .card{ padding:18px; }
+    .grid2{ grid-template-columns:1fr; }
+    .pin{ font-size:36px; letter-spacing:4px; }
+  }
+</style>
+</head>
+<body>
+<button id="muteBtn" onclick="toggleMute()" style="position:fixed;top:16px;right:16px;z-index:10;background:var(--panel);border:1px solid var(--panel-line);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;">&#128266;</button>
+<div id="app"></div>
+<script>
+/* =========================================================
+   SETUP — do this before anything else works:
+   1. Create a Supabase project (or reuse one) at supabase.com
+   2. Run the SQL from the setup instructions in the SQL Editor
+   3. Project Settings -> API -> copy your Project URL and anon/public key
+   4. Paste them in the two lines below
+   ========================================================= */
+var SUPABASE_URL = "https://klnjdjtoqwethiytwumo.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_A649Imlb7HotCpvF0ptzAw_4G7A8AAD";
+var DEPLOYED_URL = "https://jkong4488.github.io/salesgame/";
+
+/* =========================================================
+   EDIT ME: this is the starter question bank.
+   Once someone uses "Edit Questions" in the app, their
+   version is saved to Supabase and takes over from here
+   automatically (use "Reset to starter set" to undo).
+   `type` is 'mc' (options + correct index) or 'text' (accepted answers).
+   ========================================================= */
+var QUIZ_TITLE = "\u26A1 Bright Sparks \u2014 Sales Quiz";
+var QUESTION_SECONDS = 20;
+var DEFAULT_QUESTIONS = [
+  { type:"mc", q:"What does DALI stand for?", options:["Digital Addressable Lighting Interface","Direct Automated Luminaire Integration","Dimmable Analogue Lighting Interface","Digital Analogue Light Indicator"], correct:0 },
+  { type:"mc", q:"How many individual addresses can a single DALI-2 line support?", options:["128","16","64","32"], correct:2 },
+  { type:"mc", q:"What's the main advantage of DALI-2 over basic 0-10V dimming?", options:["Individual addressing with two-way feedback","It's always cheaper to wire","No commissioning is needed","It only works with fluorescent fittings"], correct:0 },
+  { type:"mc", q:"Why does DALI-2 matter for cross-brand compatibility, compared with original DALI?", options:["It's wireless-only","It removed the need for testing","It only allows one manufacturer per line","It introduced formal certification testing, so devices from different manufacturers reliably interoperate"], correct:3 },
+  { type:"mc", q:"What does D4i add on top of standard DALI-2 driver control?", options:["Higher output voltage","Standardised diagnostics (run hours, temperature, etc.)","Wireless mesh networking","Colour tuning only"], correct:1 },
+  { type:"mc", q:"What is a \"scene\" in DALI-2 lighting control?", options:["A backup power mode","A pre-set lighting look, recalled with one command","A type of luminaire housing","A fault code"], correct:1 },
+  { type:"mc", q:"What does \"broadcast\" commonly refer to in a DALI-2 system?", options:["Sending a command to every device on the line at once","A wireless firmware update","An emergency test alarm","A dimming curve type"], correct:0 },
+  { type:"mc", q:"Why do LED drivers use a dimming curve (e.g. logarithmic) rather than simple linear dimming?", options:["Legal requirement only","It matches how the human eye perceives brightness change, for smoother dimming","Saves cable costs","Only affects colour, not brightness"], correct:1 },
+  { type:"mc", q:"What's the practical difference between \"presence\" and \"absence\" detection?", options:["They're the same thing","Presence switches on and off automatically; absence needs a manual switch-on, sensor only switches off","Absence uses a camera, presence uses a PIR","Presence only works outdoors"], correct:1 },
+  { type:"mc", q:"What does \"daylight harvesting\" mean?", options:["Dimming artificial light automatically when there's enough daylight, to save energy","Tinting windows","Storing sunlight for night use","Counting daylight hours for billing"], correct:0 },
+  { type:"mc", q:"What's meant by \"corridor function\" or \"staircase function\" on a sensor?", options:["Lights flash to warn of low battery","Lights go fully off between detections","Lights switch to emergency mode","Lights dim low (not off) when unoccupied, then brighten on detection"], correct:3 },
+  { type:"mc", q:"What's a common reason to specify corridor/staircase function over simple on/off?", options:["Legal requirement everywhere","Removes the need for a sensor entirely","Keeps a safe low light level during vacancy while still saving energy","Only works with emergency lighting"], correct:2 },
+  { type:"mc", q:"What does an IP rating (e.g. IP65) actually tell you?", options:["Illumination power in lumens","Ingress protection against dust and water","Internet connectivity","Installation position required"], correct:1 },
+  { type:"mc", q:"What does CRI (Colour Rendering Index) indicate?", options:["How energy-efficient a light source is","How accurately a light reveals true colours, vs natural light","How bright a light appears","How long a light source lasts"], correct:1 },
+  { type:"mc", q:"What does CCT (colour temperature, in Kelvin) describe?", options:["How much power a light draws","The dimming curve shape","How warm or cool a light's colour appears","How bright a light is"], correct:2 },
+  { type:"mc", q:"What's the key difference between a \"standalone\" sensor and a \"networked\" control system?", options:["Networked systems don't need a sensor","Standalone works independently at the point of install; networked links devices to a shared control system","Standalone is always more expensive","No real difference"], correct:1 },
+  { type:"mc", q:"In the UK, how is emergency lighting typically kept compliant once installed?", options:["Regular function and duration testing (e.g. monthly/annual)","Never needs checking again","Only checked after a fire","Replaced every 5 years regardless"], correct:0 },
+  { type:"mc", q:"What's a practical reason a customer might choose standalone sensors over a fully networked system?", options:["Standalone is always brighter","Networked systems are illegal in some buildings","Lower cost and simpler install for smaller spaces","Standalone needs no wiring at all"], correct:2 },
+  { type:"mc", q:"What happens to DALI-2 luminaires if the controller or gateway loses communication?", options:["They typically fall back to a pre-set level rather than going fully dark","Always turn off completely, no fallback","Switch to a random level","Must be fully re-commissioned before working again"], correct:0 },
+  { type:"mc", q:"What's the benefit of a sensor combining PIR with microwave detection?", options:["Always reduces cost significantly","Only works outdoors","Improves detection reliability by combining two technologies","Removes the need for daylight sensing"], correct:2 }
+];
+
+var OPT_CLASS = ["opt-a","opt-b","opt-c","opt-d"];
+var OPT_MARKS = ["\u2605","\u25CF","\u2B21","\u25A0"];
+
+/* ============================= STATE ============================= */
+var QUESTIONS = DEFAULT_QUESTIONS.slice();
+var S = null;
+var pollT = null, tickT = null, rosterT = null;
+var STORAGE_WORKING = null;
+
+function freshState(){
+  return {
+    screen:"loading", role:null, code:"", playerId:null, playerName:"",
+    currentQ:-1, phase:null, phaseStartedAt:0, durationMs:QUESTION_SECONDS*1000,
+    myScore:0, myLast:null, selected:null, answeredCount:0, answeredIds:{},
+    players:{}, scores:{}, revealCounts:[0,0,0,0], revealTextAnswers:[],
+    joinError:"", prefillCode:"", editing:null, editDraft:null,
+    solo:{ idx:0, score:0, selected:null, startedAt:0, lastCorrect:false, lastPoints:0, lastRaw:"" }
+  };
+}
+S = freshState();
+
+function clearTimers(){
+  if(pollT){ clearInterval(pollT); pollT=null; }
+  if(tickT){ clearInterval(tickT); tickT=null; }
+}
+
+/* ============================= STORAGE (Supabase) ============================= */
+var supabaseClient = null;
+function supabaseConfigured(){
+  return SUPABASE_URL.indexOf("YOUR_SUPABASE")===-1 && SUPABASE_ANON_KEY.indexOf("YOUR_SUPABASE")===-1;
+}
+function getSupabaseClient(){
+  if(supabaseClient) return supabaseClient;
+  if(typeof supabase === "undefined" || !supabaseConfigured()) return null;
+  try{ supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); return supabaseClient; }
+  catch(e){ return null; }
+}
+async function sset(key, val){
+  var client = getSupabaseClient();
+  if(!client) return null;
+  try{
+    var res = await client.from("quiz_data").upsert({ key:key, value:val, updated_at:new Date().toISOString() }, { onConflict:"key" });
+    if(res.error){ console.error("supabase set failed", key, res.error); return null; }
+    return { key:key, value:val };
+  }catch(e){ console.error("supabase set failed", key, e); return null; }
+}
+async function sget(key){
+  var client = getSupabaseClient();
+  if(!client) return null;
+  try{
+    var res = await client.from("quiz_data").select("value").eq("key", key).maybeSingle();
+    if(res.error || !res.data) return null;
+    return res.data.value;
+  }catch(e){ return null; }
+}
+async function slist(prefix){
+  var client = getSupabaseClient();
+  if(!client) return [];
+  try{
+    var res = await client.from("quiz_data").select("key").like("key", prefix+"%");
+    if(res.error || !res.data) return [];
+    return res.data.map(function(row){ return row.key; });
+  }catch(e){ return []; }
+}
+function randCode(){ return String(Math.floor(1000 + Math.random()*9000)); }
+function randId(){ return "p_" + Math.random().toString(36).slice(2,10); }
+function buildJoinUrl(code){
+  var base = DEPLOYED_URL || (window.location.origin + window.location.pathname);
+  return base + "?join=" + code;
+}
+function getUrlParam(name){
+  try{ var params = new URLSearchParams(window.location.search); return params.get(name); }
+  catch(e){ return null; }
+}
+function renderQrCode(text){
+  var container = document.getElementById("qrcode");
+  if(!container) return;
+  container.innerHTML = "";
+  if(typeof QRCode === "undefined"){
+    container.innerHTML = '<p style="color:#0a0e1a;font-size:11px;margin:0;max-width:140px;text-align:center;">QR unavailable here &mdash; use the PIN above</p>';
+    return;
+  }
+  try{ new QRCode(container, { text:text, width:160, height:160 }); }
+  catch(e){ container.innerHTML = '<p style="color:#0a0e1a;font-size:11px;margin:0;max-width:140px;text-align:center;">QR unavailable here &mdash; use the PIN above</p>'; }
+}
+
+/* ============================= QUESTION BANK ============================= */
+async function initQuestions(){
+  var saved = await sget("quiz:questionbank");
+  if(saved && Object.prototype.toString.call(saved)==="[object Array]" && saved.length){
+    QUESTIONS = saved;
+  } else {
+    QUESTIONS = DEFAULT_QUESTIONS.slice();
+  }
+}
+async function saveQuestionBank(){
+  await sset("quiz:questionbank", QUESTIONS);
+}
+function resetQuestionBank(){
+  var btn = document.getElementById("resetBankBtn");
+  if(btn && btn.dataset.armed==="1"){
+    QUESTIONS = DEFAULT_QUESTIONS.slice();
+    saveQuestionBank();
+    render();
+  } else if(btn){
+    btn.textContent = "Confirm reset?";
+    btn.dataset.armed = "1";
+    setTimeout(function(){ if(btn && btn.dataset.armed==="1"){ btn.textContent="Reset to starter set"; btn.dataset.armed="0"; } }, 3000);
+  }
+}
+
+/* ============================= SCORING ============================= */
+function computePoints(correct, tookMs, durationMs){
+  if(!correct) return 0;
+  var frac = Math.max(0, Math.min(1, 1 - tookMs/durationMs));
+  return Math.round(500 + 500*frac);
+}
+function normalizeText(s){
+  return String(s).toLowerCase().trim().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+}
+function isTextCorrect(q, answer){
+  var norm = normalizeText(answer);
+  if(!norm) return false;
+  for(var i=0;i<q.accepted.length;i++){
+    if(normalizeText(q.accepted[i])===norm) return true;
+  }
+  return false;
+}
+
+/* ============================= AUDIO (all synthesised, no files/copyright) ============================= */
+var NOTE_FREQ = {
+  G3:196.00, A3:220.00, B3:246.94,
+  C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00, B4:493.88,
+  C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99, A5:880.00, B5:987.77,
+  C6:1046.50
+};
+var LOBBY_MELODY = ["C4","E4","G4","E4"];
+var QUESTION_MELODY = ["C4","D4","E4","G4","E4","D4","C4","G3"];
+var VICTORY_MELODY = ["C5","C5","C5","G5","A5","G5","E5","G5","A5","C6"];
+var CORRECT_STING = ["C5","E5","G5","C6"];
+var WRONG_STING = ["A4","G4","F4"];
+
+var audioCtx = null;
+var musicEnabled = true;
+var loopToken = 0;
+var currentLoopTimer = null;
+var musicUrgentActive = false;
+
+function ensureAudioCtx(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  if(audioCtx && audioCtx.state==="suspended"){ audioCtx.resume(); }
+  return audioCtx;
+}
+function playNote(freq, startTime, duration, type, volume){
+  var ctx = ensureAudioCtx();
+  if(!ctx) return;
+  var osc = ctx.createOscillator();
+  var gain = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.setValueAtTime(freq, startTime);
+  var attack = Math.min(0.02, duration*0.3);
+  var release = Math.min(0.05, duration*0.3);
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime+attack);
+  gain.gain.setValueAtTime(volume, Math.max(startTime+attack, startTime+duration-release));
+  gain.gain.linearRampToValueAtTime(0, startTime+duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime+duration+0.02);
+}
+function stopMusic(){
+  loopToken++;
+  if(currentLoopTimer){ clearTimeout(currentLoopTimer); currentLoopTimer=null; }
+}
+function playMelody(notes, noteDuration, type, volume, loop){
+  stopMusic();
+  if(!musicEnabled) return;
+  var myToken = loopToken;
+  function cycle(){
+    if(myToken!==loopToken || !musicEnabled) return;
+    var ctx = ensureAudioCtx();
+    if(!ctx) return;
+    var startTime = ctx.currentTime+0.03;
+    notes.forEach(function(n,i){ playNote(NOTE_FREQ[n], startTime+i*noteDuration, noteDuration*0.85, type, volume); });
+    if(loop){ currentLoopTimer = setTimeout(cycle, notes.length*noteDuration*1000); }
+  }
+  cycle();
+}
+function toggleMute(){
+  musicEnabled = !musicEnabled;
+  document.getElementById("muteBtn").innerHTML = musicEnabled ? "&#128266;" : "&#128263;";
+  if(!musicEnabled){ stopMusic(); }
+}
+
+/* ============================= HOST FLOW ============================= */
+async function hostCreate(){
+  if(QUESTIONS.length===0) return;
+  clearTimers();
+  if(rosterT){ clearInterval(rosterT); rosterT=null; }
+  var code = randCode();
+  S = freshState();
+  S.role="host"; S.code=code; S.currentQ=-1; S.screen="hostLobby";
+  await sset("quiz:"+code+":meta", { phase:"lobby", currentQ:-1, phaseStartedAt:Date.now(), durationMs:S.durationMs });
+  render();
+  playMelody(LOBBY_MELODY, 0.45, "sine", 0.045, true);
+  hostRefreshRoster();
+  rosterT = setInterval(hostRefreshRoster, 3000);
+}
+async function hostRefreshRoster(){
+  var keys = await slist("quiz:"+S.code+":player:");
+  var roster = {};
+  for(var i=0;i<keys.length;i++){
+    var v = await sget(keys[i]);
+    if(v){ var id = keys[i].split(":").pop(); roster[id]=v.name; }
+  }
+  var changed = JSON.stringify(roster) !== JSON.stringify(S.players);
+  S.players = roster;
+  if(changed && S.screen==="hostLobby") render();
+}
+async function hostStart(){
+  if(Object.keys(S.players).length===0) return;
+  await hostAdvanceQuestion(0);
+}
+async function hostAdvanceQuestion(idx){
+  clearTimers();
+  if(idx >= QUESTIONS.length){ await hostFinal(); return; }
+  S.currentQ = idx; S.answeredCount = 0; S.answeredIds = {};
+  S.durationMs = (QUESTIONS[idx].seconds || QUESTION_SECONDS) * 1000;
+  var startedAt = Date.now();
+  await sset("quiz:"+S.code+":meta", { phase:"question", currentQ:idx, phaseStartedAt:startedAt, durationMs:S.durationMs });
+  S.phaseStartedAt = startedAt;
+  S.screen = "hostQuestion";
+  render();
+  musicUrgentActive = false;
+  playMelody(QUESTION_MELODY, 0.22, "triangle", 0.05, true);
+  pollT = setInterval(hostPollAnswerCount, 1500);
+  tickT = setInterval(hostTick, 200);
+}
+async function hostPollAnswerCount(){
+  var keys = await slist("quiz:"+S.code+":answer:"+S.currentQ+":");
+  var idsObj = {};
+  for(var i=0;i<keys.length;i++){
+    var id = keys[i].split(":").pop();
+    idsObj[id] = true;
+  }
+  var changed = JSON.stringify(Object.keys(idsObj).sort()) !== JSON.stringify(Object.keys(S.answeredIds).sort());
+  if(changed){
+    S.answeredCount = keys.length;
+    S.answeredIds = idsObj;
+    if(S.screen==="hostQuestion") render();
+  }
+}
+function updateTimerBar(elapsed){
+  var remain = Math.max(0, S.durationMs-elapsed);
+  var pct = Math.max(0, 100*remain/S.durationMs);
+  var bar = document.querySelector(".timerBar");
+  if(bar){
+    bar.style.width = pct + "%";
+    bar.classList.toggle("urgent", remain<5000);
+  }
+  if(remain<5000 && !musicUrgentActive && (S.role==="host" || S.role==="solo")){
+    musicUrgentActive = true;
+    playMelody(QUESTION_MELODY, 0.13, "triangle", 0.06, true);
+  }
+}
+function hostTick(){
+  if(S.screen!=="hostQuestion") return;
+  var elapsed = Date.now()-S.phaseStartedAt;
+  if(elapsed >= S.durationMs){ hostReveal(); return; }
+  updateTimerBar(elapsed);
+}
+async function hostReveal(){
+  clearTimers();
+  stopMusic();
+  await sset("quiz:"+S.code+":meta", { phase:"reveal", currentQ:S.currentQ, phaseStartedAt:S.phaseStartedAt, durationMs:S.durationMs });
+  var q = QUESTIONS[S.currentQ];
+  var counts=[0,0,0,0];
+  var textAnswers=[];
+  for(var id in S.players){
+    var a = await sget("quiz:"+S.code+":answer:"+S.currentQ+":"+id);
+    if(a){
+      if(q.type==="mc"){ counts[a.choice]=(counts[a.choice]||0)+1; }
+      else { textAnswers.push({ name:S.players[id], answer:a.rawAnswer, correct:a.correct }); }
+      S.scores[id] = { name:S.players[id], score:a.cumulativeScore };
+    } else if(!S.scores[id]){
+      S.scores[id] = { name:S.players[id], score:0 };
+    }
+  }
+  S.revealCounts = counts;
+  S.revealTextAnswers = textAnswers;
+  S.screen = "hostReveal";
+  render();
+}
+async function hostLeaderboard(){
+  await sset("quiz:"+S.code+":meta", { phase:"leaderboard", currentQ:S.currentQ, phaseStartedAt:S.phaseStartedAt, durationMs:S.durationMs });
+  S.screen = "hostLeaderboard";
+  render();
+}
+async function hostNext(){ await hostAdvanceQuestion(S.currentQ+1); }
+async function hostFinal(){
+  clearTimers();
+  if(rosterT){ clearInterval(rosterT); rosterT=null; }
+  await sset("quiz:"+S.code+":meta", { phase:"final", currentQ:S.currentQ, phaseStartedAt:S.phaseStartedAt, durationMs:S.durationMs });
+  S.screen = "hostFinal";
+  render();
+  playMelody(VICTORY_MELODY, 0.17, "square", 0.055, false);
+}
+
+/* ============================= PLAYER FLOW ============================= */
+function goJoinForm(){ clearTimers(); S.screen="joinForm"; S.joinError=""; render(); }
+async function playerJoin(codeVal, nameVal){
+  var code = (codeVal||"").trim();
+  var name = (nameVal||"").trim() || "Player";
+  if(!code){ S.joinError="Enter a game code."; render(); return; }
+  var meta = await sget("quiz:"+code+":meta");
+  if(!meta){ S.joinError="No game found with that code."; render(); return; }
+  S = freshState();
+  S.code=code; S.role="player"; S.playerId=randId(); S.playerName=name;
+  await sset("quiz:"+code+":player:"+S.playerId, { name:name });
+  applyMeta(meta);
+  render();
+  pollT = setInterval(playerPoll, 1500);
+}
+function applyMeta(meta){
+  var qChanged = meta.currentQ !== S.currentQ;
+  var phaseChanged = meta.phase !== S.phase;
+  if(!qChanged && !phaseChanged) return false;
+
+  if(meta.phase==="lobby"){
+    S.phase="lobby"; S.currentQ=meta.currentQ; S.screen="playerWaiting";
+  } else if(meta.phase==="question"){
+    var isNewQuestion = meta.currentQ !== S.currentQ || S.screen!=="playerQuestion";
+    S.phase="question"; S.currentQ=meta.currentQ; S.phaseStartedAt=meta.phaseStartedAt; S.durationMs=meta.durationMs;
+    if(isNewQuestion){ S.selected=null; }
+    S.screen="playerQuestion";
+    if(tickT) clearInterval(tickT);
+    tickT = setInterval(function(){
+      if(S.screen!=="playerQuestion") return;
+      updateTimerBar(Date.now()-S.phaseStartedAt);
+    }, 200);
+  } else if(meta.phase==="reveal"){
+    if(S.screen==="playerQuestion" && S.selected===null){ S.myLast = { correct:false, points:0 }; }
+    S.phase="reveal"; S.currentQ=meta.currentQ;
+    S.screen="playerReveal";
+    if(S.myLast){ playMelody(S.myLast.correct ? CORRECT_STING : WRONG_STING, 0.12, S.myLast.correct ? "triangle" : "sine", 0.06, false); }
+  } else if(meta.phase==="leaderboard"){
+    S.phase="leaderboard"; S.currentQ=meta.currentQ;
+    S.screen="playerLeaderboard";
+  } else if(meta.phase==="final"){
+    S.phase="final"; S.currentQ=meta.currentQ;
+    S.screen="playerFinal";
+  }
+  return true;
+}
+async function playerPoll(){
+  var meta = await sget("quiz:"+S.code+":meta");
+  if(!meta) return;
+  if(applyMeta(meta)) render();
+}
+async function playerAnswer(choiceIdx){
+  if(S.selected!==null) return;
+  S.selected = choiceIdx;
+  var tookMs = Math.min(S.durationMs, Date.now()-S.phaseStartedAt);
+  var correct = choiceIdx === QUESTIONS[S.currentQ].correct;
+  var points = computePoints(correct, tookMs, S.durationMs);
+  S.myScore += points;
+  S.myLast = { correct:correct, points:points };
+  await sset("quiz:"+S.code+":answer:"+S.currentQ+":"+S.playerId, { choice:choiceIdx, correct:correct, points:points, cumulativeScore:S.myScore, tookMs:tookMs });
+  S.screen = "playerAnswered";
+  render();
+}
+async function playerSubmitText(){
+  if(S.selected!==null) return;
+  var input = document.getElementById("playerTextInput");
+  var raw = input ? input.value.trim() : "";
+  if(!raw) return;
+  S.selected = raw;
+  var tookMs = Math.min(S.durationMs, Date.now()-S.phaseStartedAt);
+  var q = QUESTIONS[S.currentQ];
+  var correct = isTextCorrect(q, raw);
+  var points = computePoints(correct, tookMs, S.durationMs);
+  S.myScore += points;
+  S.myLast = { correct:correct, points:points };
+  await sset("quiz:"+S.code+":answer:"+S.currentQ+":"+S.playerId, { rawAnswer:raw, correct:correct, points:points, cumulativeScore:S.myScore, tookMs:tookMs });
+  S.screen = "playerAnswered";
+  render();
+}
+
+/* ============================= SOLO FLOW ============================= */
+function soloStart(){
+  if(QUESTIONS.length===0) return;
+  clearTimers();
+  S = freshState();
+  S.role="solo"; S.solo = { idx:0, score:0, selected:null, startedAt:Date.now(), lastCorrect:false, lastPoints:0, lastRaw:"" };
+  S.durationMs = (QUESTIONS[0].seconds || QUESTION_SECONDS) * 1000;
+  S.screen = "soloQuestion";
+  render();
+  musicUrgentActive = false;
+  playMelody(QUESTION_MELODY, 0.22, "triangle", 0.05, true);
+  tickT = setInterval(function(){
+    if(S.screen!=="soloQuestion") return;
+    updateTimerBar(Date.now()-S.solo.startedAt);
+  }, 200);
+}
+function soloAnswer(choiceIdx){
+  if(S.solo.selected!==null) return;
+  var tookMs = Math.min(S.durationMs, Date.now()-S.solo.startedAt);
+  var correct = choiceIdx === QUESTIONS[S.solo.idx].correct;
+  var points = computePoints(correct, tookMs, S.durationMs);
+  S.solo.selected = choiceIdx;
+  S.solo.lastCorrect = correct;
+  S.solo.lastPoints = points;
+  S.solo.score += points;
+  S.screen = "soloFeedback";
+  if(tickT) clearInterval(tickT);
+  playMelody(correct ? CORRECT_STING : WRONG_STING, 0.12, correct ? "triangle" : "sine", 0.06, false);
+  render();
+}
+function soloSubmitText(){
+  if(S.solo.selected!==null) return;
+  var input = document.getElementById("soloTextInput");
+  var raw = input ? input.value.trim() : "";
+  if(!raw) return;
+  var tookMs = Math.min(S.durationMs, Date.now()-S.solo.startedAt);
+  var q = QUESTIONS[S.solo.idx];
+  var correct = isTextCorrect(q, raw);
+  var points = computePoints(correct, tookMs, S.durationMs);
+  S.solo.selected = raw;
+  S.solo.lastCorrect = correct;
+  S.solo.lastPoints = points;
+  S.solo.lastRaw = raw;
+  S.solo.score += points;
+  S.screen = "soloFeedback";
+  if(tickT) clearInterval(tickT);
+  playMelody(correct ? CORRECT_STING : WRONG_STING, 0.12, correct ? "triangle" : "sine", 0.06, false);
+  render();
+}
+function soloNext(){
+  var nextIdx = S.solo.idx+1;
+  if(nextIdx>=QUESTIONS.length){
+    S.screen="soloFinal";
+    render();
+    playMelody(VICTORY_MELODY, 0.17, "square", 0.055, false);
+    return;
+  }
+  S.solo.idx=nextIdx; S.solo.selected=null; S.solo.startedAt=Date.now();
+  S.durationMs = (QUESTIONS[nextIdx].seconds || QUESTION_SECONDS) * 1000;
+  S.screen = "soloQuestion";
+  render();
+  musicUrgentActive = false;
+  playMelody(QUESTION_MELODY, 0.22, "triangle", 0.05, true);
+  tickT = setInterval(function(){
+    if(S.screen!=="soloQuestion") return;
+    updateTimerBar(Date.now()-S.solo.startedAt);
+  }, 200);
+}
+
+/* ============================= QUESTION EDITOR ============================= */
+function openQuestionList(){ clearTimers(); S.screen="editList"; render(); }
+function openEditForm(i){
+  S.editing = i;
+  if(i===null){
+    S.editDraft = { type:"mc", q:"", options:["","","",""], correct:0, accepted:"", seconds:QUESTION_SECONDS };
+  } else {
+    var src = QUESTIONS[i];
+    S.editDraft = {
+      type: src.type,
+      q: src.q,
+      options: src.type==="mc" ? src.options.slice() : ["","","",""],
+      correct: src.type==="mc" ? src.correct : 0,
+      accepted: src.type==="text" ? src.accepted.join(", ") : "",
+      seconds: src.seconds || QUESTION_SECONDS
+    };
+  }
+  S.screen = "editForm";
+  render();
+}
+function setDraftQ(val){ S.editDraft.q = val; }
+function setDraftOption(idx, val){ S.editDraft.options[idx] = val; }
+function setDraftAccepted(val){ S.editDraft.accepted = val; }
+function setDraftCorrect(idx){ S.editDraft.correct = idx; }
+function setDraftSeconds(val){ S.editDraft.seconds = val; }
+function setDraftType(el){ S.editDraft.type = el.dataset.type; render(); }
+function saveDraft(){
+  var d = S.editDraft;
+  var q = (d.q||"").trim();
+  if(!q) return;
+  var secs = parseInt(d.seconds, 10);
+  if(isNaN(secs) || secs<3) secs = QUESTION_SECONDS;
+  if(secs>300) secs = 300;
+  var newQ;
+  if(d.type==="mc"){
+    var opts = d.options.map(function(o){ return (o||"").trim(); });
+    newQ = { type:"mc", q:q, options:opts, correct:d.correct, seconds:secs };
+  } else {
+    var accepted = (d.accepted||"").split(",").map(function(s){ return s.trim(); }).filter(function(s){ return s.length>0; });
+    newQ = { type:"text", q:q, accepted: accepted.length ? accepted : [""], seconds:secs };
+  }
+  if(S.editing===null){ QUESTIONS.push(newQ); } else { QUESTIONS[S.editing] = newQ; }
+  saveQuestionBank();
+  S.screen = "editList";
+  render();
+}
+function cancelEdit(){ S.screen="editList"; render(); }
+function moveQuestion(i, dir){
+  var j = i+dir;
+  if(j<0 || j>=QUESTIONS.length) return;
+  var tmp = QUESTIONS[i]; QUESTIONS[i]=QUESTIONS[j]; QUESTIONS[j]=tmp;
+  saveQuestionBank();
+  render();
+}
+function requestDelete(i){
+  var btn = document.getElementById("del-"+i);
+  if(!btn) return;
+  if(btn.dataset.armed==="1"){
+    QUESTIONS.splice(i,1);
+    saveQuestionBank();
+    render();
+  } else {
+    btn.textContent = "Confirm?";
+    btn.dataset.armed = "1";
+    setTimeout(function(){ if(btn && btn.dataset.armed==="1"){ btn.textContent="Delete"; btn.dataset.armed="0"; } }, 3000);
+  }
+}
+
+/* ============================= RESET ============================= */
+function resetToLanding(){
+  clearTimers();
+  stopMusic();
+  if(rosterT){ clearInterval(rosterT); rosterT=null; }
+  S = freshState();
+  S.screen = "landing";
+  render();
+}
+
+/* ============================= RENDER HELPERS ============================= */
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+
+function optionsHtml(options, opts){
+  opts = opts || {};
+  var parts = options.map(function(o,i){
+    var cls = "opt " + OPT_CLASS[i];
+    if(opts.correctIdx!==undefined){
+      if(i===opts.correctIdx) cls += " correct";
+      else if(i===opts.selected) cls += " wrong";
+    }
+    var clickable = !!opts.onClick && opts.selected===undefined && opts.correctIdx===undefined;
+    var clickAttr = clickable ? (' onclick="'+opts.onClick+'('+i+')"') : "";
+    var cursorStyle = clickable ? "" : "cursor:default;";
+    return '<div class="'+cls+'" style="'+cursorStyle+'"'+clickAttr+'>'+OPT_MARKS[i]+'&nbsp;&nbsp;'+esc(o)+'</div>';
+  });
+  return '<div class="grid2">' + parts.join("") + '</div>';
+}
+function renderScoreRows(sorted){
+  return sorted.map(function(p,i){
+    return '<div class="list-row"><span><span class="rank">#'+(i+1)+'</span> '+esc(p.name)+'</span><b>'+p.score+'</b></div>';
+  }).join("");
+}
+function renderConfetti(){
+  var colors = ["var(--a)","var(--b)","var(--c)","var(--d)"];
+  var pieces = "";
+  for(var i=0;i<18;i++){
+    var left = Math.round(Math.random()*100);
+    var delay = (Math.random()*0.6).toFixed(2);
+    var dur = (1.8+Math.random()*1.2).toFixed(2);
+    var color = colors[i%colors.length];
+    pieces += '<div class="confetti" style="left:'+left+'%;background:'+color+';animation-delay:'+delay+'s;animation-duration:'+dur+'s;"></div>';
+  }
+  return pieces;
+}
+function renderAward(winnerName){
+  return '<div class="award-stage">'
+    + '<div class="confetti-layer">' + renderConfetti() + '</div>'
+    + '<div class="presenter">'
+    +   '<div class="presenter-figure"><div class="presenter-head"></div><div class="presenter-body"></div></div>'
+    +   '<div class="trophy">\uD83C\uDFC6</div>'
+    + '</div>'
+    + '<div class="award-caption">Presented by <b>Mr Br\u00fcck</b></div>'
+    + '<h1 class="winner-name">'+esc(winnerName)+'</h1>'
+    + '<div class="winner-sub">takes the top spot! \uD83C\uDF89</div>'
+    + '</div>';
+}
+
+/* ============================= SCREENS ============================= */
+var SCREENS = {
+  loading(){
+    return '<div class="card center"><p class="muted">Loading&hellip;</p></div>';
+  },
+  landing(){
+    var warning = (STORAGE_WORKING === false)
+      ? '<div class="card" style="background:#2a1810;border-color:var(--bad);margin-bottom:16px;text-align:left;">'
+        + '<p style="color:var(--text);margin:0;font-size:13px;"><b>Not connected to Supabase.</b> Fill in SUPABASE_URL and SUPABASE_ANON_KEY near the top of this file, make sure the quiz_data table and policies are set up, then reload. Solo Practice below works regardless.</p>'
+        + '</div>'
+      : '';
+    return warning + '<div class="card center">'
+      + '<div class="kicker">Live Quiz</div>'
+      + '<h1>'+esc(QUIZ_TITLE)+'</h1>'
+      + '<p>Host it on the big screen, everyone joins on their own phone &mdash; or practise solo.</p>'
+      + '<button class="btn btn-primary" onclick="hostCreate()">Host a Live Game</button>'
+      + '<button class="btn" onclick="goJoinForm()">Join a Game</button>'
+      + '<button class="btn btn-ghost" onclick="soloStart()">Solo Practice</button>'
+      + '<button class="btn btn-ghost" onclick="openQuestionList()">Edit Questions (' + QUESTIONS.length + ')</button>'
+      + '</div>';
+  },
+  hostLobby(){
+    if(STORAGE_WORKING === false){
+      return '<div class="card center">'
+        + '<div class="card" style="background:#2a1810;border-color:var(--bad);text-align:left;">'
+        + '<p style="color:var(--text);margin:0;font-size:13px;"><b>Not connected to Supabase.</b> Fill in SUPABASE_URL and SUPABASE_ANON_KEY near the top of this file, then reload. Players will not be able to join until this is fixed.</p>'
+        + '</div>'
+        + '<div style="margin-top:18px;"><button class="btn btn-ghost" onclick="resetToLanding()">Back</button></div>'
+        + '</div>';
+    }
+    var names = Object.keys(S.players).map(function(id){ return S.players[id]; });
+    var joinedHtml = names.length
+      ? names.map(function(n){ return '<div class="list-row"><span>'+esc(n)+'</span></div>'; }).join("")
+      : '<p class="muted">Waiting for players&hellip;</p>';
+    return '<div class="card center">'
+      + '<div class="kicker">Game PIN</div>'
+      + '<div class="pin">'+S.code+'</div>'
+      + '<div class="qr-wrap"><div id="qrcode"></div></div>'
+      + '<p class="muted" style="margin-top:2px;">Scan to join instantly, or enter the PIN at the join screen.</p>'
+      + '<div class="card" style="background:#0e1330;">'
+      + '<div class="kicker">Joined (' + names.length + ')</div>'
+      + joinedHtml
+      + '</div>'
+      + '<div style="margin-top:18px;">'
+      + '<button class="btn btn-primary" onclick="hostStart()" '+(names.length?"":"disabled")+'>Start Game &rarr;</button>'
+      + '<button class="btn btn-ghost" onclick="resetToLanding()">Cancel</button>'
+      + '</div></div>';
+  },
+  hostQuestion(){
+    var q = QUESTIONS[S.currentQ];
+    var elapsed = Date.now()-S.phaseStartedAt;
+    var remain = Math.max(0, S.durationMs-elapsed);
+    var pct = Math.max(0, 100*remain/S.durationMs);
+    var urgent = remain<5000 ? " urgent" : "";
+    var playerIds = Object.keys(S.players).sort(function(a,b){ return S.players[a].localeCompare(S.players[b]); });
+    var chips = playerIds.map(function(id){
+      var done = !!S.answeredIds[id];
+      return '<span class="chip '+(done?"done":"waiting")+'">'+(done?"&#10003; ":"")+esc(S.players[id])+'</span>';
+    }).join("");
+    var body = q.type==="mc"
+      ? optionsHtml(q.options, {})
+      : '<div class="card" style="background:#0e1330;text-align:center;padding:30px 16px;"><p class="muted" style="margin:0;">Players are typing their answer&hellip;</p></div>';
+    return '<div class="card">'
+      + '<div class="kicker">Question '+(S.currentQ+1)+' of '+QUESTIONS.length+' &middot; '+Math.round(S.durationMs/1000)+'s &middot; '+S.answeredCount+' of '+playerIds.length+' answered</div>'
+      + '<div class="rosterchips">'+chips+'</div>'
+      + '<h2>'+esc(q.q)+'</h2>'
+      + '<div class="timerBarWrap"><div class="timerBar'+urgent+'" style="width:'+pct+'%"></div></div>'
+      + body
+      + '<div style="margin-top:18px;"><button class="btn" onclick="hostReveal()">Reveal now &rarr;</button></div>'
+      + '</div>';
+  },
+  hostReveal(){
+    var q = QUESTIONS[S.currentQ];
+    var body;
+    if(q.type==="mc"){
+      var maxCount = Math.max(1, S.revealCounts[0], S.revealCounts[1], S.revealCounts[2], S.revealCounts[3]);
+      var rows = q.options.map(function(o,i){
+        var c = S.revealCounts[i]||0;
+        var pct = Math.round(100*c/maxCount);
+        var color = ["var(--a)","var(--b)","var(--c)","var(--d)"][i];
+        return '<div style="margin:10px 0;">'
+          + '<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;"><span>'+esc(o)+'</span><span><b>'+c+'</b></span></div>'
+          + '<div style="height:10px;background:#0e1330;border-radius:6px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+color+';"></div></div>'
+          + '</div>';
+      }).join("");
+      body = optionsHtml(q.options, { correctIdx:q.correct })
+        + '<div class="card" style="background:#0e1330;margin-top:16px;"><div class="kicker">Who picked what</div>'+rows+'</div>';
+    } else {
+      var acceptedStr = q.accepted.join(", ");
+      var rows2 = S.revealTextAnswers.map(function(r){
+        var mark = r.correct ? "\u2705" : "\u274C";
+        return '<div class="list-row"><span>'+mark+' '+esc(r.name)+'</span><span class="muted">'+esc(r.answer)+'</span></div>';
+      }).join("") || '<p class="muted">No one answered.</p>';
+      body = '<p class="muted">Accepted: <b style="color:var(--text)">'+esc(acceptedStr)+'</b></p>'
+        + '<div class="card" style="background:#0e1330;margin-top:12px;"><div class="kicker">What people typed</div>'+rows2+'</div>';
+    }
+    return '<div class="card">'
+      + '<div class="kicker">Question '+(S.currentQ+1)+' of '+QUESTIONS.length+' &mdash; Answer</div>'
+      + '<h2>'+esc(q.q)+'</h2>'
+      + body
+      + '<div style="margin-top:18px;"><button class="btn btn-primary" onclick="hostLeaderboard()">Show Leaderboard &rarr;</button></div>'
+      + '</div>';
+  },
+  hostLeaderboard(){
+    var sorted = [];
+    for(var id in S.scores){ sorted.push(S.scores[id]); }
+    sorted.sort(function(a,b){ return b.score-a.score; });
+    var isLast = S.currentQ >= QUESTIONS.length-1;
+    var rows = renderScoreRows(sorted);
+    return '<div class="card">'
+      + '<div class="kicker">Leaderboard</div>'
+      + '<h2>After Question '+(S.currentQ+1)+' of '+QUESTIONS.length+'</h2>'
+      + (rows || '<p class="muted">No scores yet.</p>')
+      + '<div style="margin-top:18px;"><button class="btn btn-primary" onclick="'+(isLast?"hostFinal":"hostNext")+'()">'+(isLast?"Final Results &rarr;":"Next Question &rarr;")+'</button></div>'
+      + '</div>';
+  },
+  hostFinal(){
+    var sorted = [];
+    for(var id in S.scores){ sorted.push(S.scores[id]); }
+    sorted.sort(function(a,b){ return b.score-a.score; });
+    var top3 = sorted.slice(0,3);
+    var podiumOrder = [1,0,2];
+    var podiumHeights = [100,140,78];
+    var podiumColors = ["var(--silver)","var(--gold)","var(--bronze)"];
+    var medals = ["\uD83E\uDD48","\uD83E\uDD47","\uD83E\uDD49"];
+    var podiumHtml = podiumOrder.map(function(idx,pos){
+      var p = top3[idx];
+      if(!p) return "<div></div>";
+      return '<div><div style="font-size:24px;">'+medals[pos]+'</div>'
+        + '<div class="bar" style="height:'+podiumHeights[pos]+'px;background:'+podiumColors[pos]+';"></div>'
+        + '<div style="margin-top:6px;font-weight:700;font-size:13px;">'+esc(p.name)+'</div>'
+        + '<div class="muted">'+p.score+'</div></div>';
+    }).join("");
+    var listHtml = renderScoreRows(sorted);
+    var awardHtml = top3[0] ? renderAward(top3[0].name) : '<p class="muted">No scores yet.</p>';
+    return '<div class="card center">'
+      + awardHtml
+      + '<div class="podium">'+podiumHtml+'</div>'
+      + '<div class="kicker" style="margin-top:8px;">Full standings</div>'
+      + (listHtml || '<p class="muted">No scores yet.</p>')
+      + '<div style="margin-top:18px;"><button class="btn btn-primary" onclick="resetToLanding()">New Game</button></div>'
+      + '</div>';
+  },
+  joinForm(){
+    var warning = (STORAGE_WORKING === false)
+      ? '<div class="card" style="background:#2a1810;border-color:var(--bad);margin-bottom:14px;text-align:left;">'
+        + '<p style="color:var(--text);margin:0;font-size:13px;"><b>Not connected to Supabase.</b> This won\u2019t be able to find any game right now.</p>'
+        + '</div>'
+      : '';
+    return warning + '<div class="card">'
+      + '<h2>Join a Game</h2>'
+      + '<input type="text" id="joinCode" placeholder="Game PIN" maxlength="4" inputmode="numeric" value="'+esc(S.prefillCode||"")+'">'
+      + '<input type="text" id="joinName" placeholder="Your name" maxlength="20">'
+      + (S.joinError ? '<p style="color:var(--bad)">'+esc(S.joinError)+'</p>' : "")
+      + '<button class="btn btn-primary" onclick="playerJoin(document.getElementById(\'joinCode\').value, document.getElementById(\'joinName\').value)">Join &rarr;</button>'
+      + '<button class="btn btn-ghost" onclick="resetToLanding()">Back</button>'
+      + '</div>';
+  },
+  playerWaiting(){
+    return '<div class="card center">'
+      + '<div class="kicker">You are in, '+esc(S.playerName)+'!</div>'
+      + '<div class="pulse-dot"></div>'
+      + '<h2>Waiting for the host to start&hellip;</h2>'
+      + '<p class="muted">Keep this open &mdash; the question will appear automatically.</p>'
+      + '</div>';
+  },
+  playerQuestion(){
+    var q = QUESTIONS[S.currentQ];
+    var elapsed = Date.now()-S.phaseStartedAt;
+    var remain = Math.max(0, S.durationMs-elapsed);
+    var pct = Math.max(0, 100*remain/S.durationMs);
+    var urgent = remain<5000 ? " urgent" : "";
+    var body = q.type==="mc"
+      ? optionsHtml(q.options, { onClick:"playerAnswer" })
+      : '<input type="text" id="playerTextInput" placeholder="Type your answer&hellip;"><button class="btn btn-primary" onclick="playerSubmitText()">Submit</button>';
+    return '<div class="card">'
+      + '<div class="kicker">Question '+(S.currentQ+1)+' of '+QUESTIONS.length+' &middot; '+Math.round(S.durationMs/1000)+'s</div>'
+      + '<h2>'+esc(q.q)+'</h2>'
+      + '<div class="timerBarWrap"><div class="timerBar'+urgent+'" style="width:'+pct+'%"></div></div>'
+      + body
+      + '</div>';
+  },
+  playerAnswered(){
+    return '<div class="card center"><h2>Answer locked in \u2705</h2><p class="muted">Waiting for the host to reveal&hellip;</p></div>';
+  },
+  playerReveal(){
+    var last = S.myLast || { correct:false, points:0 };
+    var headline = last.correct ? "\uD83C\uDF89 Correct!" : (S.selected===null ? "\u23F1\uFE0F Out of time" : "\u274C Not quite");
+    return '<div class="card center">'
+      + '<h2>'+headline+'</h2>'
+      + '<div class="scoreBig'+(last.correct?" good":"")+'" style="color:'+(last.correct?"var(--good)":"var(--bad)")+'">+'+last.points+'</div>'
+      + '<p class="muted">Your total score: <b style="color:var(--text)">'+S.myScore+'</b></p>'
+      + '</div>';
+  },
+  playerLeaderboard(){
+    return '<div class="card center">'
+      + '<div class="kicker">Leaderboard</div>'
+      + '<p>Check the big screen for standings!</p>'
+      + '<p class="muted">Your score so far</p>'
+      + '<div class="scoreBig">'+S.myScore+'</div>'
+      + '</div>';
+  },
+  playerFinal(){
+    return '<div class="card center">'
+      + '<div class="kicker">Game Over</div>'
+      + '<h1>Final Score</h1>'
+      + '<div class="scoreBig">'+S.myScore+'</div>'
+      + '<p class="muted">See the big screen for the full leaderboard.</p>'
+      + '</div>';
+  },
+  soloQuestion(){
+    var q = QUESTIONS[S.solo.idx];
+    var elapsed = Date.now()-S.solo.startedAt;
+    var remain = Math.max(0, S.durationMs-elapsed);
+    var pct = Math.max(0, 100*remain/S.durationMs);
+    var body = q.type==="mc"
+      ? optionsHtml(q.options, { onClick:"soloAnswer" })
+      : '<input type="text" id="soloTextInput" placeholder="Type your answer&hellip;"><button class="btn btn-primary" onclick="soloSubmitText()">Submit</button>';
+    return '<div class="card">'
+      + '<div class="kicker">Solo Practice &mdash; Question '+(S.solo.idx+1)+' of '+QUESTIONS.length+' &middot; '+Math.round(S.durationMs/1000)+'s &middot; Score '+S.solo.score+'</div>'
+      + '<h2>'+esc(q.q)+'</h2>'
+      + '<div class="timerBarWrap"><div class="timerBar" style="width:'+pct+'%"></div></div>'
+      + body
+      + '</div>';
+  },
+  soloFeedback(){
+    var q = QUESTIONS[S.solo.idx];
+    var body = q.type==="mc"
+      ? optionsHtml(q.options, { correctIdx:q.correct, selected:S.solo.selected })
+      : '<p class="muted">You typed: <b style="color:var(--text)">'+esc(S.solo.lastRaw)+'</b></p><p class="muted">Accepted: <b style="color:var(--text)">'+esc(q.accepted.join(", "))+'</b></p>';
+    return '<div class="card">'
+      + '<h2>'+(S.solo.lastCorrect ? "\uD83C\uDF89 Correct!" : "\u274C Not quite")+'</h2>'
+      + body
+      + '<p class="muted">Score: <b style="color:var(--text)">'+S.solo.score+'</b></p>'
+      + '<button class="btn btn-primary" onclick="soloNext()">'+(S.solo.idx+1>=QUESTIONS.length ? "See results &rarr;" : "Next question &rarr;")+'</button>'
+      + '</div>';
+  },
+  soloFinal(){
+    var maxPossible = QUESTIONS.length*1000;
+    var pct = maxPossible>0 ? Math.round(100*S.solo.score/maxPossible) : 0;
+    var msg = "Nice warm-up \u2014 run it again!";
+    if(pct>=90) msg = "\uD83C\uDF1F Certified lighting legend.";
+    else if(pct>=70) msg = "\uD83D\uDCA1 Sharp \u2014 you know your stuff.";
+    else if(pct>=50) msg = "\uD83D\uDC4D Solid \u2014 a bit more revision helps.";
+    return '<div class="card center">'
+      + '<div class="kicker">Solo Practice &mdash; Done</div>'
+      + '<h1>'+S.solo.score+' pts</h1>'
+      + '<p class="muted">'+pct+'% of max possible</p>'
+      + '<p>'+msg+'</p>'
+      + '<button class="btn btn-primary" onclick="soloStart()">Play again</button>'
+      + '<button class="btn btn-ghost" onclick="resetToLanding()">Back to menu</button>'
+      + '</div>';
+  },
+  editList(){
+    var rows = QUESTIONS.map(function(q,i){
+      var badge = q.type==="text" ? "TEXT" : "MC";
+      var secBadge = (q.seconds || QUESTION_SECONDS) + "s";
+      return '<div class="qrow">'
+        + '<div class="qrow-main"><span class="badge">'+badge+'</span><span class="badge">'+secBadge+'</span>'+esc(q.q)+'</div>'
+        + '<div class="qrow-actions">'
+        + '<button class="iconbtn" onclick="moveQuestion('+i+',-1)" '+(i===0?"disabled":"")+'>&uarr;</button>'
+        + '<button class="iconbtn" onclick="moveQuestion('+i+',1)" '+(i===QUESTIONS.length-1?"disabled":"")+'>&darr;</button>'
+        + '<button class="iconbtn" onclick="openEditForm('+i+')">Edit</button>'
+        + '<button class="iconbtn danger" id="del-'+i+'" onclick="requestDelete('+i+')">Delete</button>'
+        + '</div></div>';
+    }).join("");
+    return '<div class="card">'
+      + '<div class="kicker">Question bank (' + QUESTIONS.length + ')</div>'
+      + (rows || '<p class="muted">No questions yet.</p>')
+      + '<div style="margin-top:16px;">'
+      + '<button class="btn btn-primary" onclick="openEditForm(null)">+ Add question</button>'
+      + '<button class="btn btn-ghost" onclick="resetToLanding()">Back</button>'
+      + '<button class="btn btn-ghost" id="resetBankBtn" onclick="resetQuestionBank()">Reset to starter set</button>'
+      + '</div></div>';
+  },
+  editForm(){
+    var d = S.editDraft;
+    var isNew = S.editing===null;
+    var optionsHtml2 = "";
+    for(var k=0;k<4;k++){
+      optionsHtml2 += '<div class="optedit">'
+        + '<input type="radio" name="correctopt" '+(d.correct===k?"checked":"")+' onclick="setDraftCorrect('+k+')">'
+        + '<input type="text" value="'+esc(d.options[k])+'" oninput="setDraftOption('+k+', this.value)" placeholder="Option '+String.fromCharCode(65+k)+'">'
+        + '</div>';
+    }
+    return '<div class="card">'
+      + '<div class="kicker">'+(isNew?"Add question":"Edit question")+'</div>'
+      + '<label class="field">QUESTION</label>'
+      + '<textarea rows="2" oninput="setDraftQ(this.value)">'+esc(d.q)+'</textarea>'
+      + '<label class="field">ANSWER TYPE</label>'
+      + '<div class="segrow">'
+      + '<div class="seg'+(d.type==="mc"?" active":"")+'" data-type="mc" onclick="setDraftType(this)">Multiple choice</div>'
+      + '<div class="seg'+(d.type==="text"?" active":"")+'" data-type="text" onclick="setDraftType(this)">Text answer</div>'
+      + '</div>'
+      + (d.type==="mc"
+          ? '<label class="field">OPTIONS &mdash; tick the correct one</label>' + optionsHtml2
+          : '<label class="field">ACCEPTED ANSWERS (comma-separated)</label><input type="text" value="'+esc(d.accepted)+'" oninput="setDraftAccepted(this.value)">'
+        )
+      + '<label class="field">TIME LIMIT (SECONDS)</label>'
+      + '<input type="number" min="3" max="300" step="1" value="'+esc(String(d.seconds))+'" oninput="setDraftSeconds(this.value)">'
+      + '<button class="btn btn-primary" onclick="saveDraft()">Save question</button>'
+      + '<button class="btn btn-ghost" onclick="cancelEdit()">Cancel</button>'
+      + '</div>';
+  }
+};
+
+function render(){
+  var app = document.getElementById("app");
+  app.innerHTML = SCREENS[S.screen] ? SCREENS[S.screen]() : SCREENS.landing();
+  if(S.screen === "hostLobby" && STORAGE_WORKING !== false){
+    renderQrCode(buildJoinUrl(S.code));
+  }
+}
+
+async function boot(){
+  await initQuestions();
+  STORAGE_WORKING = supabaseConfigured();
+  if(STORAGE_WORKING){
+    var probe = await sset("quiz:_capability_test", { t: Date.now() });
+    STORAGE_WORKING = (probe !== null);
+  }
+  var joinCode = getUrlParam("join");
+  if(joinCode){
+    S.prefillCode = joinCode;
+    S.screen = "joinForm";
+  } else {
+    S.screen = "landing";
+  }
+  render();
+}
+render();
+boot();
+</script>
+</body>
+</html>
